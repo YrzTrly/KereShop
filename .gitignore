@@ -1,0 +1,8 @@
+node_modules/
+__pycache__/
+*.pyc
+*.db
+*.sqlite3
+.helix-overflow/
+.helix-shots/
+.helix-bg/
