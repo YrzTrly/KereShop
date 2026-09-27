@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: kere-shop-api
-    runtime: python
-    # Stdlib-only server — no pip installs needed. An explicit no-op build
-    # step keeps Render from failing on a missing requirements.txt.
-    buildCommand: echo "No dependencies to install (stdlib only)"
-    startCommand: python3 -m server.app
-    healthCheckPath: /api/health
