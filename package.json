@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Kere Shop — Business Operating System for social sellers (storefront, CRM, voice orders)",
+  "description": "Kere Shop — your small mobile shop (storefront, CRM, voice orders)",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -12,6 +12,7 @@
     "seed": "node seed/seed.js"
   },
   "dependencies": {
+    "cloudinary": "^2.11.0",
     "mongodb-memory-server": "^10.1.4",
     "mongoose": "^8.16.0",
     "next": "^15.3.4",

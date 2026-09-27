@@ -1,10 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { timeAgo } from '@/lib/format.js';
 import { StatusBadge, ChannelBadge } from '@/components/ui.js';
 
-export default function OrdersList({ orders }) {
+export default function OrdersList({ orders, initialFrom = '', initialTo = '' }) {
   const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {
@@ -25,6 +26,27 @@ export default function OrdersList({ orders }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <form method="GET" className="flex flex-wrap items-end gap-2">
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-faint">
+            From
+            <input type="date" name="from" defaultValue={initialFrom} className="mt-0.5 block rounded-lg border border-line bg-card px-2.5 py-1.5 text-[13px] text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30" />
+          </label>
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-faint">
+            To
+            <input type="date" name="to" defaultValue={initialTo} className="mt-0.5 block rounded-lg border border-line bg-card px-2.5 py-1.5 text-[13px] text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30" />
+          </label>
+          <button type="submit" className="rounded-lg border border-line bg-card px-3 py-2 text-[13px] font-semibold text-ink transition hover:bg-line-soft">
+            Filter
+          </button>
+        </form>
+        {(initialFrom || initialTo) && (
+          <Link href="/orders" className="rounded-lg px-2 py-2 text-[12px] font-semibold text-brand hover:underline">
+            Clear filter
+          </Link>
+        )}
+      </div>
+
       <div className="relative max-w-sm">
         <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-inksoft" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="7" />

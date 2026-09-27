@@ -3,7 +3,7 @@ import './globals.css';
 const ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23F5B301'/%3E%3Ctext x='16' y='23' font-family='Arial,sans-serif' font-size='20' font-weight='700' text-anchor='middle' fill='%23172033'%3EK%3C/text%3E%3C/svg%3E";
 
 export const metadata = {
-  title: 'Kere Shop — Business OS for social sellers',
+  title: 'Kere Shop — Your Small Mobile Shop',
   description:
     'Turn social traffic, customer conversations and voice notes into an organized storefront, CRM and dashboard.',
   icons: { icon: ICON },

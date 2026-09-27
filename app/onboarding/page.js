@@ -103,7 +103,7 @@ export default function OnboardingPage() {
           <div>
             <p className="text-lg font-bold tracking-tight text-ink">KERE SHOP</p>
             <p className="text-[11px] font-medium uppercase tracking-wider text-faint">
-              Business OS for social sellers
+              Your Small Mobile Shop
             </p>
           </div>
         </div>

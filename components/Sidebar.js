@@ -14,7 +14,7 @@ function Brand() {
       <span className="leading-tight">
         <span className="block text-[15px] font-bold tracking-tight text-ink">KERE SHOP</span>
         <span className="block text-[10px] font-medium uppercase tracking-wider text-faint">
-          Business OS
+          Your Small Mobile Shop
         </span>
       </span>
     </Link>

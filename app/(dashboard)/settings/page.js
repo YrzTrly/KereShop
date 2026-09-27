@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui.js';
+import ImageUpload from '@/components/ImageUpload.js';
 
 const TUTORIAL_KEY = 'kereshop_tutorial_seen_v1';
 
@@ -273,12 +274,20 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <input
-                    className={inputCls}
-                    placeholder="Image URL (optional)"
-                    value={p.image}
-                    onChange={setProduct(i, 'image')}
-                  />
+                  <div className="space-y-2">
+                    <ImageUpload
+                      value={p.image}
+                      onChange={(url) =>
+                        setCatalog((rows) => rows.map((r, j) => (j === i ? { ...r, image: url } : r)))
+                      }
+                    />
+                    <input
+                      className={inputCls}
+                      placeholder="Or paste an image URL (optional)"
+                      value={p.image}
+                      onChange={setProduct(i, 'image')}
+                    />
+                  </div>
                   <input
                     className={inputCls}
                     placeholder="Short description (optional)"
