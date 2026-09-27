@@ -154,6 +154,23 @@ class WebhookTests(unittest.TestCase):
         bodies = [m["body"] for m in body["conversation"]["messages"]]
         self.assertEqual(bodies.count("delivery time?"), 1)
 
+    def test_02b_whatsapp_malformed_body(self):
+        """Malformed or non-object JSON bodies must be rejected with 400, not crash the handler."""
+        for raw_body in (b"{not json", b"[1, 2, 3]", b'"just a string"'):
+            req = urllib.request.Request(
+                self.base + "/webhooks/whatsapp",
+                data=raw_body,
+                method="POST",
+                headers={"Content-Type": "application/json"},
+            )
+            try:
+                with urllib.request.urlopen(req) as resp:
+                    status, raw = resp.status, resp.read()
+            except urllib.error.HTTPError as e:
+                status, raw = e.code, e.read()
+            self.assertEqual(status, 400, f"unexpected status for {raw_body!r}")
+            self.assertEqual(json.loads(raw)["error"], "invalid JSON body")
+
     # ----------------------------------------------------------- Instagram
     def test_03_instagram_ingest(self):
         payload = {

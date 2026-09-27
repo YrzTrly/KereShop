@@ -20,7 +20,7 @@
     --nav-w: 60px; --nav-w-open: 224px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
+  html, body { height: 100%; width: 100%; max-width: 100%; box-sizing: border-box; }
   body {
     font-family: "DM Sans", -apple-system, "Segoe UI", sans-serif;
     font-size: 14px; color: var(--text); background: var(--bg);
@@ -32,7 +32,7 @@
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb { background: #DDDAD3; border-radius: 6px; border: 2px solid var(--bg); }
 
-  .shell { display: flex; height: 100vh; overflow: hidden; }
+  .shell { display: flex; height: 100vh; width: 100%; max-width: 100%; overflow: hidden; }
 
   /* ---------- Sidebar ---------- */
   #sidebar {
@@ -73,7 +73,7 @@
   .nav-spacer { flex: 1; }
 
   /* ---------- Main column ---------- */
-  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .main, #main-wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; width: 100%; max-width: 100%; }
   #topbar {
     height: 56px; flex-shrink: 0; background: var(--panel);
     border-bottom: 1px solid var(--line);
@@ -140,7 +140,7 @@
 
   .metrics {
     display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
-    justify-content: center; max-width: 860px;
+    width: 100%;
     margin-bottom: 24px;
   }
   .metric {
@@ -336,6 +336,19 @@
     table.tbl { display: block; overflow-x: auto; }
   }
 
+  @media (max-width: 768px) {
+    .metrics { grid-template-columns: 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+    #view { padding: 16px 14px; }
+    #topbar { padding: 0 12px; gap: 8px; }
+    #topbar .search-box { display: none; }
+    .page-head { flex-direction: column; gap: 8px; }
+    .view-head { flex-direction: column; gap: 8px; }
+    #topbar h1 { font-size: 16px; }
+    .card { max-width: 100%; }
+    .btn { white-space: normal; }
+  }
+
   /* ---------- Forms & misc ---------- */
   .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
   .field label { font-size: 12.5px; font-weight: 600; color: var(--muted); }
@@ -463,6 +476,7 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const API = {
   get:  p => fetch(p).then(r => r.json()),
   post: (p, b) => fetch(p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b || {}) }).then(r => r.json()),
+  put:  (p, b) => fetch(p, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b || {}) }).then(r => r.json()),
   patch: (p, b) => fetch(p, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b || {}) }).then(r => r.json()),
 };
 
@@ -514,6 +528,7 @@ const NAV = [
   { id: "orders",        label: "Orders",        hash: "#/orders",   icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 11V7a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v4"/><path d="M4 11h16l-1.5 9a2 2 0 0 1-2 1.6h-9A2 2 0 0 1 5.5 20z"/></svg>' },
   { id: "customers",     label: "Customers",     hash: "#/customers",icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
   { id: "products",      label: "Products",      hash: "#/products", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>' },
+  { id: "integrations",  label: "Integrations",  hash: "#/integrations", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' },
 ];
 
 function buildNav() {
@@ -555,8 +570,10 @@ async function route() {
     setActiveNav("customers"); viewCustomers(token);
   } else if (h === "#/products") {
     setActiveNav("products"); viewProducts(token);
+  } else if (h === "#/integrations") {
+    setActiveNav("integrations"); renderView("Integrations", () => viewIntegrations(token));
   } else if (h === "#/settings") {
-    setActiveNav("settings"); renderView("Settings", () => viewSettings());
+    setActiveNav("settings"); renderView("Settings", () => viewSettings(token));
   } else {
     setActiveNav("overview"); renderView("Overview", () => viewOverview(token));
   }
@@ -1184,28 +1201,142 @@ function openAddProduct(existing) {
   });
 }
 
+/* ============ INTEGRATIONS ============ */
+const INTEGRATION_CHANNELS = [
+  { key: "whatsapp_number", label: "WhatsApp number", ph: "+234 800 000 0000",
+    link: v => "https://wa.me/" + String(v).replace(/[^0-9]/g, ""), linkLabel: "Open chat" },
+  { key: "whatsapp_business_token", label: "WhatsApp Business token (optional)", ph: "Only needed to send messages from the API", type: "password" },
+  { key: "facebook_url", label: "Facebook page", ph: "https://facebook.com/yourshop", type: "url" },
+  { key: "instagram_url", label: "Instagram profile", ph: "https://instagram.com/yourshop", type: "url" },
+  { key: "tiktok_url", label: "TikTok profile", ph: "https://tiktok.com/@yourshop", type: "url" },
+  { key: "x_url", label: "X (Twitter) profile", ph: "https://x.com/yourshop", type: "url" },
+];
+
+async function viewIntegrations(token) {
+  const view = $("#view");
+  view.innerHTML = pageHead("Integrations", "Connect your WhatsApp and social media so customers can reach you everywhere.");
+  view.innerHTML += `
+  <div class="card" style="max-width:640px">
+    <div class="card-head" style="border-bottom:1px solid var(--line)"><h2>Connect accounts</h2></div>
+    <div class="panel-body">
+      ${INTEGRATION_CHANNELS.map(c =>
+        `<div class="field"><label>${esc(c.label)}</label><input id="int-${c.key}" type="${c.type || "text"}" placeholder="${esc(c.ph)}" /></div>`
+      ).join("")}
+      <button class="btn btn-primary" id="int-save">Save connections</button>
+    </div>
+  </div>
+  <div class="card" style="max-width:640px;margin-top:20px">
+    <div class="card-head" style="border-bottom:1px solid var(--line)"><h2>Connected channels</h2></div>
+    <div class="card-body" id="int-connected"><p class="muted" style="padding:12px 0">Loading…</p></div>
+  </div>`;
+
+  const load = async () => {
+    let data = {};
+    try { data = await API.get("/api/integrations"); } catch (e) { /* not connected yet */ }
+    if (token !== viewToken) return;
+    for (const c of INTEGRATION_CHANNELS) {
+      const el = $("#int-" + c.key);
+      if (el) el.value = data[c.key] || "";
+    }
+    const box = $("#int-connected");
+    if (box) renderConnected(box, data);
+  };
+
+  $("#int-save").addEventListener("click", async () => {
+    const body = {};
+    for (const c of INTEGRATION_CHANNELS) {
+      const el = $("#int-" + c.key);
+      if (el && el.value.trim()) body[c.key] = el.value.trim();
+    }
+    if (!Object.keys(body).length) { toast("Connect at least one account first", true); return; }
+    const btn = $("#int-save"); btn.disabled = true;
+    try {
+      await API.post("/api/integrations", body);
+      toast("Connections saved");
+      load();
+    } catch (e) { toast("Could not save connections", true); }
+    btn.disabled = false;
+  });
+
+  load();
+}
+
+function renderConnected(box, data) {
+  const rows = INTEGRATION_CHANNELS.filter(c => !c.type || c.type === "text" || c.key === "whatsapp_number")
+    .filter(c => data && data[c.key]);
+  if (!rows.length) {
+    box.innerHTML = `<p class="muted" style="padding:12px 0">Nothing connected yet. Fill in your WhatsApp number or social profiles above and hit <strong>Save connections</strong>.</p>`;
+    return;
+  }
+  box.innerHTML = rows.map(c => {
+    const val = data[c.key];
+    const href = c.link ? c.link(val) : (String(val).startsWith("http") ? val : null);
+    const right = href
+      ? `<a href="${esc(href)}" target="_blank" rel="noopener" class="muted">${esc(c.linkLabel || val)}</a>`
+      : `<span class="muted">${esc(c.key === "whatsapp_business_token" ? "Token stored" : val)}</span>`;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line-soft)">
+      <span style="width:20px;height:20px;border-radius:50%;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px">✓</span>
+      <span style="font-weight:600;font-size:13px;flex-shrink:0">${esc(c.label.replace(" (optional)", ""))}</span>
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right">${right}</span>
+    </div>`;
+  }).join("");
+}
+
 /* ============ SETTINGS ============ */
-function viewSettings() {
+async function viewSettings() {
   const view = $("#view");
   view.innerHTML = pageHead("Settings", "Your business details.");
-  view.innerHTML += `<div class="card" style="max-width:520px">
-    <div class="panel-body">
-      <div class="field"><label>Business name</label><input id="set-name" value="Kereshop" /></div>
-      <div class="field"><label>Owner</label><input id="set-owner" value="Amara" /></div>
-      <div class="field"><label>Phone (WhatsApp)</label><input id="set-phone" placeholder="+234 800 000 0000" /></div>
-      <div class="field"><label>Location</label><input id="set-loc" placeholder="Lagos, Nigeria" /></div>
+  view.innerHTML += `<div class="card settings-form">
+    <div class="card-head" style="border-bottom:1px solid var(--line)"><h2>Business details</h2></div>
+    <div class="card-body">
+      <div class="field"><label>Shop name</label><input id="set-name" placeholder="Kereshop" /></div>
+      <div class="field"><label>Currency</label><input id="set-currency" placeholder="NGN" /></div>
+      <div class="field"><label>Address</label><input id="set-address" placeholder="12 Marina Road, Lagos" /></div>
+      <div class="field"><label>Phone</label><input id="set-phone" placeholder="+234 800 000 0000" /></div>
+      <div class="field"><label>Email</label><input id="set-email" type="email" placeholder="hello@yourshop.com" /></div>
       <button class="btn btn-primary" id="set-save">Save</button>
     </div>
   </div>`;
-  $("#set-save").addEventListener("click", () => {
+  try {
+    const s = await API.get("/api/settings");
+    $("#set-name").value = s.shop_name || "";
+    $("#set-currency").value = s.currency || "";
+    $("#set-address").value = s.address || "";
+    $("#set-phone").value = s.phone || "";
+    $("#set-email").value = s.email || "";
+  } catch (e) { /* defaults */ }
+  $("#set-save").addEventListener("click", async () => {
+    const body = {
+      shop_name: $("#set-name").value.trim(),
+      currency: $("#set-currency").value.trim(),
+      address: $("#set-address").value.trim(),
+      phone: $("#set-phone").value.trim(),
+      email: $("#set-email").value.trim(),
+    };
+    const btn = $("#set-save"); btn.disabled = true;
     try {
-      const s = JSON.parse(localStorage.getItem("krs-settings") || "{}");
-      s.name = $("#set-name").value.trim(); s.owner = $("#set-owner").value.trim();
-      s.phone = $("#set-phone").value.trim(); s.location = $("#set-loc").value.trim();
-      localStorage.setItem("krs-settings", JSON.stringify(s));
+      await API.put("/api/settings", body);
       toast("Settings saved");
-    } catch (e) { toast("Could not save", true); }
+      if (body.shop_name) {
+        document.title = body.shop_name;
+        const ln = $(".logo-name");
+        if (ln) ln.textContent = body.shop_name;
+      }
+    } catch (e) { toast("Could not save settings", true); }
+    btn.disabled = false;
   });
+}
+
+/* ============ GLOBAL SETTINGS (on load) ============ */
+async function loadGlobalSettings() {
+  try {
+    const s = await API.get("/api/settings");
+    if (s.shop_name) {
+      document.title = s.shop_name;
+      const ln = $(".logo-name");
+      if (ln) ln.textContent = s.shop_name;
+    }
+  } catch (e) { /* keep defaults */ }
 }
 
 /* ============ GLOBAL SEARCH ============ */
@@ -1228,6 +1359,7 @@ $("#global-search").addEventListener("keydown", e => {
 /* ============ INIT ============ */
 buildNav();
 route();
+loadGlobalSettings();
 </script>
 </body>
 </html>

@@ -17,6 +17,8 @@ from server.handlers_catalog import ROUTES as CATALOG_ROUTES
 from server.handlers_operations import ROUTES as OPERATIONS_ROUTES
 from server.webhooks import ROUTES as WEBHOOK_ROUTES
 from server.handlers_automation import ROUTES as AUTOMATION_ROUTES
+from server.handlers_integrations import ROUTES as INTEGRATION_ROUTES
+from server.handlers_settings import ROUTES as SETTINGS_ROUTES
 
 MAX_BODY = 1_000_000
 DASHBOARD_PATH = os.path.join(
@@ -65,7 +67,12 @@ class Handler(BaseHTTPRequestHandler):
             if length:
                 if length > MAX_BODY:
                     return self._send(413, {"error": "body too large"})
-                body = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+                try:
+                    body = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    return self._send(400, {"error": "invalid JSON body"})
+                if not isinstance(body, dict):
+                    return self._send(400, {"error": "invalid JSON body"})
             con = dbmod.get_db()
             token = authmod.token_from_header(self.headers)
             if token:
@@ -123,7 +130,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
-                self.wfile.write(data)
+                if not getattr(self, "_head_only", False):
+                    self.wfile.write(data)
                 return
         self._send(404, {"error": "not found"})
 
@@ -140,7 +148,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
-        self.wfile.write(data)
+        if not getattr(self, "_head_only", False):
+            self.wfile.write(data)
 
     def do_GET(self):
         self._dispatch("GET")
@@ -157,10 +166,16 @@ class Handler(BaseHTTPRequestHandler):
     def do_DELETE(self):
         self._dispatch("DELETE")
 
+    def do_HEAD(self):
+        # Same routing as GET, but never write a response body.
+        self._head_only = True
+        self._dispatch("GET")
+
 
 ROUTES = (
     INBOX_ROUTES + CUSTOMER_ROUTES + CATALOG_ROUTES + WEBHOOK_ROUTES
     + AUTOMATION_ROUTES + OPERATIONS_ROUTES + AUTH_ROUTES
+    + INTEGRATION_ROUTES + SETTINGS_ROUTES
 )
 
 
