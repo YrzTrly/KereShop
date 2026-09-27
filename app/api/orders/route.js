@@ -9,6 +9,8 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/orders — create an order (manual form, storefront checkout, voice capture).
  * Body: { name, phone, items: [{name, qty, price?}], location?, notes?, status?, channel?, transcript?, total? }
+ * The manual form also sends the customer nested: { customer: { name, phone, notes } } —
+ * both shapes are accepted, with the nested customer winning when present.
  * Prices are resolved from the shop catalog when possible — the AI/form never gets
  * to decide what a listed product is worth.
  */
@@ -33,13 +35,13 @@ export async function POST(req) {
 
     const { order } = await createOrder({
       shop,
-      name: body.name,
-      phone: body.phone,
+      name: body.customer?.name || body.name,
+      phone: body.customer?.phone || body.phone,
       items: resolvedItems,
       status: body.status || 'pending',
       channel: body.channel || 'manual',
       location: body.location,
-      notes: body.notes,
+      notes: body.customer?.notes || body.notes,
       transcript: body.transcript,
       total: body.total,
     });

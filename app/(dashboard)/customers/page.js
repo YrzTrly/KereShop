@@ -5,9 +5,18 @@ import CustomersList from '@/components/CustomersList.js';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CustomersPage() {
+export default async function CustomersPage({ searchParams }) {
   const shop = await requireShop();
-  const customers = await Customer.find({ shop: shop._id }).sort({ lastOrderAt: -1, createdAt: -1 });
+  const sp = (await searchParams) || {};
+
+  // Optional date-range filter on the customer's last order date.
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(sp.from || '') ? new Date(`${sp.from}T00:00:00.000Z`) : null;
+  const to = /^\d{4}-\d{2}-\d{2}$/.test(sp.to || '') ? new Date(`${sp.to}T23:59:59.999Z`) : null;
+  const lastOrderFilter = {};
+  if (from) lastOrderFilter.$gte = from;
+  if (to) lastOrderFilter.$lte = to;
+
+  const customers = await Customer.find({ shop: shop._id, ...(Object.keys(lastOrderFilter).length ? { lastOrderAt: lastOrderFilter } : {}) }).sort({ lastOrderAt: -1, createdAt: -1 });
   const lapsed = customers.filter((c) => {
     if (!c.lastOrderAt) return false;
     return (Date.now() - new Date(c.lastOrderAt).getTime()) / 86400000 >= 30;
@@ -36,6 +45,8 @@ export default async function CustomersPage() {
           preferences: c.preferences || [],
           lapsed: (Date.now() - new Date(c.lastOrderAt || 0).getTime()) / 86400000 >= 30 && !!c.lastOrderAt,
         }))}
+        initialFrom={sp.from || ''}
+        initialTo={sp.to || ''}
       />
     </div>
   );

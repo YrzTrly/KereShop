@@ -6,9 +6,18 @@ import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
-export default async function OrdersPage() {
+export default async function OrdersPage({ searchParams }) {
   const shop = await requireShop();
-  const orders = await Order.find({ shop: shop._id })
+  const sp = (await searchParams) || {};
+
+  // Optional date-range filter (from/to as YYYY-MM-DD from the filter form).
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(sp.from || '') ? new Date(`${sp.from}T00:00:00.000Z`) : null;
+  const to = /^\d{4}-\d{2}-\d{2}$/.test(sp.to || '') ? new Date(`${sp.to}T23:59:59.999Z`) : null;
+  const createdFilter = {};
+  if (from) createdFilter.$gte = from;
+  if (to) createdFilter.$lte = to;
+
+  const orders = await Order.find({ shop: shop._id, ...(Object.keys(createdFilter).length ? { createdAt: createdFilter } : {}) })
     .sort({ createdAt: -1 })
     .limit(200)
     .populate('customer', 'name phone');
@@ -43,6 +52,8 @@ export default async function OrdersPage() {
           transcript: o.transcript,
           createdAt: o.createdAt ? new Date(o.createdAt).toISOString() : null,
         }))}
+        initialFrom={sp.from || ''}
+        initialTo={sp.to || ''}
       />
     </div>
   );

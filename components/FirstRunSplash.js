@@ -65,7 +65,7 @@ export default function FirstRunSplash() {
           </span>
           <p className="mt-4 text-lg font-bold tracking-tight text-ink">KERE SHOP</p>
           <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-faint">
-            Business OS
+            Your Small Mobile Shop
           </p>
           <div className="mt-6 h-1 w-full overflow-hidden rounded-full bg-line-soft">
             <div
