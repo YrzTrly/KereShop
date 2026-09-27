@@ -377,5 +377,96 @@ class WebhookTests(unittest.TestCase):
             del os.environ["FLOWDESK_TIKTOK_WS_TOKEN"]
 
 
+# WhatsApp Cloud API: integrations save + send coverage
+    def test_15_integrations_roundtrip_includes_cloud_api_fields(self):
+        """Round-trip the WhatsApp Cloud API fields through save + read-back."""
+        status, body = request(self.base, "POST", "/api/integrations", {
+            "whatsapp_number": "+2348012345678",
+            "whatsapp_phone_number_id": "1236508332889553",
+            "whatsapp_business_account_id": "1071921918956932",
+            "whatsapp_business_token": "test-cloud-token",
+        })
+        self.assertEqual(status, 200)
+        self.assertEqual(body["whatsapp_phone_number_id"], "1236508332889553")
+        self.assertEqual(body["whatsapp_business_account_id"], "1071921918956932")
+        self.assertEqual(body["whatsapp_business_token"], "test-cloud-token")
+
+        status, body = request(self.base, "GET", "/api/integrations")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["whatsapp_number"], "+2348012345678")
+        self.assertEqual(body["whatsapp_phone_number_id"], "1236508332889553")
+
+    def test_16_whatsapp_cloud_api_send(self):
+        """With Cloud API credentials saved, the reply is sent via the Meta API.
+
+        Only the HTTP seam is stubbed: tests cannot call the real graph
+        endpoint, so _http_post_json is swapped for a recorder that asserts
+        on the exact request and returns a Meta-shaped success body.
+        """
+        from server import webhooks
+
+        conv = conv_by_phone(self.base, "whatsapp", "2348012345678")
+        calls = []
+
+        def fake_post(url, headers, payload, timeout=15):
+            calls.append({"url": url, "headers": headers, "payload": payload})
+            return 200, {"messages": [{"id": "wamid.TEST0001"}]}
+
+        orig = webhooks._http_post_json
+        webhooks._http_post_json = fake_post
+        try:
+            status, body = request(
+                self.base, "POST", f"/api/conversations/{conv['id']}/reply",
+                {"body": "Your order has been shipped!"},
+            )
+        finally:
+            webhooks._http_post_json = orig
+
+        self.assertEqual(status, 200)
+        self.assertTrue(body["sent"])
+        self.assertEqual(body["channel"], "whatsapp")
+        self.assertEqual(body["provider_response"]["status"], "sent")
+        self.assertEqual(body["provider_response"]["whatsapp_message_id"], "wamid.TEST0001")
+
+        self.assertEqual(len(calls), 1)
+        call = calls[0]
+        self.assertEqual(
+            call["url"],
+            "https://graph.facebook.com/v20.0/1236508332889553/messages",
+        )
+        self.assertEqual(call["headers"]["Authorization"], "Bearer test-cloud-token")
+        self.assertEqual(call["payload"]["messaging_product"], "whatsapp")
+        self.assertEqual(call["payload"]["to"], "2348012345678")
+        self.assertEqual(call["payload"]["text"]["body"], "Your order has been shipped!")
+
+    def test_17_whatsapp_cloud_failure_falls_back_to_stub(self):
+        """A failed Meta API call (bad token etc.) still records the reply as a stub."""
+        from server import webhooks
+
+        conv = conv_by_phone(self.base, "whatsapp", "2348012345678")
+
+        def fake_post(url, headers, payload, timeout=15):
+            return 400, {"error": {"message": "Invalid OAuth access token."}}
+
+        orig = webhooks._http_post_json
+        webhooks._http_post_json = fake_post
+        try:
+            status, body = request(
+                self.base, "POST", f"/api/conversations/{conv['id']}/reply",
+                {"body": "fallback check"},
+            )
+        finally:
+            webhooks._http_post_json = orig
+
+        self.assertEqual(status, 200)
+        self.assertTrue(body["sent"])
+        self.assertEqual(body["provider_response"]["status"], "stub")
+        self.assertIn("whatsapp cloud api unavailable", body["provider_response"]["note"])
+
+        status, body = request(self.base, "GET", f"/api/conversations/{conv['id']}")
+        outbound = [m for m in body["conversation"]["messages"] if m["direction"] == "outbound"]
+        self.assertEqual(outbound[-1]["body"], "fallback check")
+
+
 if __name__ == "__main__":
     unittest.main()

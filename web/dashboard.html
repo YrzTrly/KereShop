@@ -1205,7 +1205,9 @@ function openAddProduct(existing) {
 const INTEGRATION_CHANNELS = [
   { key: "whatsapp_number", label: "WhatsApp number", ph: "+234 800 000 0000",
     link: v => "https://wa.me/" + String(v).replace(/[^0-9]/g, ""), linkLabel: "Open chat" },
-  { key: "whatsapp_business_token", label: "WhatsApp Business token (optional)", ph: "Only needed to send messages from the API", type: "password" },
+  { key: "whatsapp_phone_number_id", label: "WhatsApp Phone Number ID", ph: "Meta Business Manager → API Setup → Phone number ID", type: "text" },
+  { key: "whatsapp_business_account_id", label: "WhatsApp Business Account ID", ph: "Meta Business Manager → Accounts → Business Account ID", type: "text" },
+  { key: "whatsapp_business_token", label: "WhatsApp Business access token", ph: "Required to send messages via the Cloud API", type: "password" },
   { key: "facebook_url", label: "Facebook page", ph: "https://facebook.com/yourshop", type: "url" },
   { key: "instagram_url", label: "Instagram profile", ph: "https://instagram.com/yourshop", type: "url" },
   { key: "tiktok_url", label: "TikTok profile", ph: "https://tiktok.com/@yourshop", type: "url" },
@@ -1262,7 +1264,7 @@ async function viewIntegrations(token) {
 }
 
 function renderConnected(box, data) {
-  const rows = INTEGRATION_CHANNELS.filter(c => !c.type || c.type === "text" || c.key === "whatsapp_number")
+  const rows = INTEGRATION_CHANNELS.filter(c => !c.type || c.type === "text" || c.key === "whatsapp_number" || c.key === "whatsapp_business_token")
     .filter(c => data && data[c.key]);
   if (!rows.length) {
     box.innerHTML = `<p class="muted" style="padding:12px 0">Nothing connected yet. Fill in your WhatsApp number or social profiles above and hit <strong>Save connections</strong>.</p>`;

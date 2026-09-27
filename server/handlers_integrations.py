@@ -8,6 +8,8 @@ import re
 FIELDS = (
     "whatsapp_number",
     "whatsapp_business_token",
+    "whatsapp_phone_number_id",
+    "whatsapp_business_account_id",
     "facebook_url",
     "instagram_url",
     "tiktok_url",

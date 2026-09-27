@@ -5,8 +5,11 @@ reuses the inbox helpers to upsert the customer and append an inbound message.
 Outbound replies are recorded as `direction='outbound'` rows in `messages` and
 routed through a per-provider stub sender so tests can assert on the call.
 """
+import json
 import os
 import re
+import urllib.error
+import urllib.request
 from urllib.parse import parse_qs
 
 from server.handlers_inbox import _one, _rows, _qs, _upsert_customer
@@ -35,6 +38,89 @@ def _provider_stub(source, customer, body):
                or customer.get("external_id") or customer.get("name")
                or customer.get("customer_name")),
         "body": body,
+    }
+    OUTBOX.append(entry)
+    return entry
+
+
+WHATSAPP_GRAPH_VERSION = "v20.0"
+
+
+def _whatsapp_credentials(con):
+    """Resolve WhatsApp Cloud API credentials: integrations row, then env vars."""
+    phone_number_id = token = None
+    try:
+        row = con.execute(
+            "SELECT whatsapp_phone_number_id, whatsapp_business_token "
+            "FROM integrations WHERE id = 1"
+        ).fetchone()
+        if row:
+            phone_number_id = (row["whatsapp_phone_number_id"] or "").strip() or None
+            token = (row["whatsapp_business_token"] or "").strip() or None
+    except Exception:
+        pass  # column not migrated yet or no integrations table
+    phone_number_id = (
+        phone_number_id
+        or os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "").strip()
+        or None
+    )
+    token = token or os.environ.get("WHATSAPP_CLOUD_TOKEN", "").strip() or None
+    return phone_number_id, token
+
+
+def _http_post_json(url, headers, payload, timeout=15):
+    """POST JSON; returns (status_code, parsed_body). Network errors -> (0, {...})."""
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/json", **headers},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8", "replace")
+            try:
+                return resp.status, json.loads(raw)
+            except ValueError:
+                return resp.status, raw
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", "replace")
+        try:
+            return exc.code, json.loads(raw)
+        except ValueError:
+            return exc.code, raw
+    except (urllib.error.URLError, OSError) as exc:
+        return 0, {"error": str(exc)}
+
+
+def _send_whatsapp_cloud(con, to, body):
+    """Send a text message through the Meta WhatsApp Cloud API.
+
+    Returns a provider-shaped response on success, or None when credentials
+    are missing, the recipient has no phone number, or the API call fails
+    (the caller then falls back to the stub sender).
+    """
+    phone_number_id, token = _whatsapp_credentials(con)
+    if not phone_number_id or not token:
+        return None
+    phone = re.sub(r"\D", "", to or "")
+    if not phone:
+        return None
+    url = f"https://graph.facebook.com/{WHATSAPP_GRAPH_VERSION}/{phone_number_id}/messages"
+    status, data = _http_post_json(
+        url,
+        {"Authorization": f"Bearer {token}"},
+        {"messaging_product": "whatsapp", "to": phone, "type": "text", "text": {"body": body}},
+    )
+    if status != 200 or not isinstance(data, dict) or "messages" not in data:
+        return None
+    message_id = (data.get("messages") or [{}])[0].get("id")
+    entry = {
+        "provider": "whatsapp",
+        "status": "sent",
+        "to": phone,
+        "body": body,
+        "whatsapp_message_id": message_id,
     }
     OUTBOX.append(entry)
     return entry
@@ -221,7 +307,12 @@ def verify_tiktok(con, body, params, query):
 
 
 def conversation_reply(con, body, params, query):
-    """Send an outbound reply for a conversation through the provider stub."""
+    """Send an outbound reply for a conversation.
+
+    WhatsApp conversations use the Meta Cloud API when credentials are
+    configured (integrations row or env vars); everything else — and any
+    failed cloud send — falls back to the stub sender.
+    """
     conv = _one(
         con,
         """SELECT c.id, c.source, cu.name, cu.phone, cu.external_id
@@ -234,7 +325,17 @@ def conversation_reply(con, body, params, query):
     text = (body.get("body") or body.get("text") or "").strip()
     if not text:
         return 400, {"error": "body is required"}
-    provider_response = _provider_stub(conv["source"], conv, text)
+    provider_response = None
+    if conv["source"] == "whatsapp" and (conv.get("phone") or "").strip():
+        provider_response = _send_whatsapp_cloud(con, conv["phone"], text)
+        if provider_response is None:
+            provider_response = _provider_stub(conv["source"], conv, text)
+            provider_response["note"] = (
+                "whatsapp cloud api unavailable (missing credentials or send failed); "
+                "recorded as stub"
+            )
+    else:
+        provider_response = _provider_stub(conv["source"], conv, text)
     now = con.execute("SELECT datetime('now') AS ts").fetchone()["ts"]
     con.execute(
         "INSERT INTO messages (conversation_id, direction, sender, body, message_type) "
