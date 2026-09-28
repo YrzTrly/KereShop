@@ -54,7 +54,6 @@ export default async function OrdersPage({ searchParams }) {
           items: o.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
           total: money(o.total, shop.currency),
           status: o.status,
-          channel: o.channel,
           location: o.location,
           transcript: o.transcript,
           createdAt: o.createdAt ? new Date(o.createdAt).toISOString() : null,
