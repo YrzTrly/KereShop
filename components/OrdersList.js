@@ -5,13 +5,16 @@ import Link from 'next/link';
 import { timeAgo } from '@/lib/format.js';
 import { StatusBadge, ChannelBadge } from '@/components/ui.js';
 
-export default function OrdersList({ orders, initialFrom = '', initialTo = '' }) {
+export default function OrdersList({ orders, initialFrom = '', initialTo = '', initialStatus = '' }) {
   const [q, setQ] = useState('');
+  const [status, setStatus] = useState(initialStatus);
 
   const filtered = useMemo(() => {
+    let list = orders;
+    if (status) list = list.filter((o) => o.status === status);
     const n = q.trim().toLowerCase();
-    if (!n) return orders;
-    return orders.filter((o) => {
+    if (!n) return list;
+    return list.filter((o) => {
       const cust = o.customer?.name?.toLowerCase() || '';
       const phone = o.customer?.phone || '';
       const itemText = (o.items || []).map((i) => i.name).join(' ').toLowerCase();
@@ -22,7 +25,7 @@ export default function OrdersList({ orders, initialFrom = '', initialTo = '' })
         (o.location || '').toLowerCase().includes(n)
       );
     });
-  }, [q, orders]);
+  }, [q, orders, status]);
 
   return (
     <div className="space-y-4">
@@ -36,11 +39,26 @@ export default function OrdersList({ orders, initialFrom = '', initialTo = '' })
             To
             <input type="date" name="to" defaultValue={initialTo} className="mt-0.5 block rounded-lg border border-line bg-card px-2.5 py-1.5 text-[13px] text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30" />
           </label>
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-faint">
+            Status
+            <select
+              name="status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="mt-0.5 block rounded-lg border border-line bg-card px-2.5 py-1.5 text-[13px] text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30"
+            >
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </label>
           <button type="submit" className="rounded-lg border border-line bg-card px-3 py-2 text-[13px] font-semibold text-ink transition hover:bg-line-soft">
             Filter
           </button>
         </form>
-        {(initialFrom || initialTo) && (
+        {(initialFrom || initialTo || initialStatus) && (
           <Link href="/orders" className="rounded-lg px-2 py-2 text-[12px] font-semibold text-brand hover:underline">
             Clear filter
           </Link>
@@ -76,7 +94,7 @@ export default function OrdersList({ orders, initialFrom = '', initialTo = '' })
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-10 text-center text-sm text-inksoft">
-                  No orders match “{q}”.
+                  No orders match your filters.
                 </td>
               </tr>
             )}
