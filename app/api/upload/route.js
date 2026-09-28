@@ -1,18 +1,18 @@
 import { NextResponse } from 'next/server';
-import { mkdir, writeFile, stat } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { ensureUploadDir } from '@/lib/uploads.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB — must match the cap in ImageUpload.js
 
-// Images are stored on the local disk under data/uploads (gitignored) and
-// served back through /api/files/[name] — no external service required.
-const UPLOAD_DIR = process.env.UPLOAD_DIR
-  ? path.resolve(process.env.UPLOAD_DIR)
-  : path.join(process.cwd(), 'data', 'uploads');
+// Images are stored on the local disk (data/uploads by default, /tmp
+// fallback on serverless) and served back through /api/files/[name] — no
+// external service required. Directory resolution lives in lib/uploads.js
+// so the upload and serve routes always agree.
 
 const EXT_BY_MIME = {
   'image/jpeg': '.jpg',
@@ -52,21 +52,12 @@ export async function POST(req) {
   }
 
   try {
-    await mkdir(UPLOAD_DIR, { recursive: true });
+    const uploadDir = await ensureUploadDir();
     const name = `${randomBytes(16).toString('hex')}${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(path.join(UPLOAD_DIR, name), buffer);
+    await writeFile(path.join(uploadDir, name), buffer);
     return NextResponse.json({ url: `/api/files/${name}` });
   } catch (err) {
-    if (err && err.code === 'EROFS') {
-      return NextResponse.json(
-        {
-          error:
-            'Uploads are stored on the server disk, which is read-only on this platform. Run the app locally or on a VPS to enable image uploads.',
-        },
-        { status: 507 }
-      );
-    }
     console.error('Upload failed:', err.message);
     return NextResponse.json(
       { error: `Upload failed: ${err.message || 'unknown error'}` },
@@ -76,7 +67,6 @@ export async function POST(req) {
 }
 
 export async function GET() {
-  const res = await stat(UPLOAD_DIR).catch(() => null);
-  const count = res && res.isDirectory() ? 0 : 0;
-  return NextResponse.json({ ok: true, dir: UPLOAD_DIR, files: count });
+  const dir = await ensureUploadDir().catch(() => null);
+  return NextResponse.json({ ok: true, dir, files: 0 });
 }
