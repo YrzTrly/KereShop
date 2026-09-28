@@ -17,7 +17,14 @@ export default async function OrdersPage({ searchParams }) {
   if (from) createdFilter.$gte = from;
   if (to) createdFilter.$lte = to;
 
-  const orders = await Order.find({ shop: shop._id, ...(Object.keys(createdFilter).length ? { createdAt: createdFilter } : {}) })
+  // Optional status filter, validated against the Order enum.
+  const status = ['pending', 'confirmed', 'delivered', 'cancelled'].includes(sp.status) ? sp.status : '';
+
+  const orders = await Order.find({
+    shop: shop._id,
+    ...(status ? { status } : {}),
+    ...(Object.keys(createdFilter).length ? { createdAt: createdFilter } : {}),
+  })
     .sort({ createdAt: -1 })
     .limit(200)
     .populate('customer', 'name phone');
@@ -44,7 +51,7 @@ export default async function OrdersPage({ searchParams }) {
         orders={orders.map((o) => ({
           id: o._id.toString(),
           customer: o.customer ? { name: o.customer.name, phone: o.customer.phone } : null,
-          items: o.items,
+          items: o.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
           total: money(o.total, shop.currency),
           status: o.status,
           channel: o.channel,
@@ -54,6 +61,7 @@ export default async function OrdersPage({ searchParams }) {
         }))}
         initialFrom={sp.from || ''}
         initialTo={sp.to || ''}
+        initialStatus={status}
       />
     </div>
   );

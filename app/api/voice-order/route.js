@@ -37,6 +37,16 @@ const RESPONSE_SCHEMA = {
   required: ['customerName', 'customerPhone', 'items', 'deliveryLocation', 'notes'],
 };
 
+function parseJsonLoose(text) {
+  let s = String(text || '').trim();
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) s = fence[1].trim();
+  const first = s.indexOf('{');
+  const last = s.lastIndexOf('}');
+  if (first >= 0 && last > first) s = s.slice(first, last + 1);
+  return JSON.parse(s);
+}
+
 async function parseAudioWithGemini(base64, mimeType) {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`,
@@ -75,7 +85,7 @@ Rules:
   }
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
-  const parsed = JSON.parse(text);
+  const parsed = parseJsonLoose(text);
   return {
     customerName: parsed.customerName || '',
     customerPhone: normalizePhone(parsed.customerPhone || ''),
