@@ -28,7 +28,7 @@ const emptyProduct = { name: '', price: '', image: '', description: '' };
 export default function SettingsPage() {
   const [shop, setShop] = useState(null);
   const [products, setProducts] = useState([]);
-  const [form, setForm] = useState({ name: '', category: '', bio: '', whatsapp: '', instagram: '', currency: 'NGN' });
+  const [form, setForm] = useState({ name: '', category: '', bio: '', whatsapp: '', instagram: '', currency: 'NGN', avatar: '' });
   const [catalog, setCatalog] = useState([]);
   const [savingShop, setSavingShop] = useState(false);
   const [savingProducts, setSavingProducts] = useState(false);
@@ -52,6 +52,7 @@ export default function SettingsPage() {
         whatsapp: data.shop.whatsapp,
         instagram: data.shop.instagram,
         currency: data.shop.currency || 'NGN',
+        avatar: data.shop.avatar || '',
       });
       setCatalog(data.products.map((p) => ({ ...p })));
     } catch (e) {
@@ -164,6 +165,27 @@ export default function SettingsPage() {
       {/* Shop details */}
       <form onSubmit={saveShop} className="mt-5 rounded-xl border border-line bg-panel p-4">
         <p className="text-[13px] font-bold text-ink">Shop details</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr]">
+          <div className="space-y-2">
+            <ImageUpload
+              value={form.avatar}
+              onChange={(url) => setForm((f) => ({ ...f, avatar: url }))}
+            />
+            <input
+              className={inputCls}
+              placeholder="Or paste an image URL (optional)"
+              value={form.avatar}
+              onChange={setField('avatar')}
+            />
+          </div>
+          <div>
+            <span className="mb-1.5 block text-[12px] font-semibold text-ink">Shop image / logo</span>
+            <p className="text-[12px] leading-relaxed text-faint">
+              Shown in the sidebar, on your public storefront, and in WhatsApp
+              order messages. Upload a square image or paste a direct image URL.
+            </p>
+          </div>
+        </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="mb-1.5 block text-[12px] font-semibold text-ink">Shop name</span>

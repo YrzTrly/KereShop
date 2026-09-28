@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireShop } from '@/lib/shop-context.js';
 import { Product } from '@/lib/models.js';
 import { money } from '@/lib/format.js';
+import Avatar from '@/components/Avatar.js';
 import { PageHeader, ChannelBadge } from '@/components/ui.js';
 
 export const dynamic = 'force-dynamic';
@@ -68,9 +69,7 @@ export default async function MyShopPage() {
           {products.map((p) => (
             <div key={p._id} className="flex items-center justify-between rounded-lg border border-line bg-panel px-3 py-2.5">
               <div className="flex min-w-0 items-center gap-2.5">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-line-soft text-[16px]">
-                  {p.image ? '🛍️' : shop.avatar}
-                </span>
+                <Avatar value={p.image || shop.avatar} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-line-soft text-[16px]" />
                 <div className="min-w-0">
                   <p className="truncate text-[13px] font-semibold text-ink">{p.name}</p>
                   <p className="text-[11px] text-faint">

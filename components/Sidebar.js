@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { NAV, isActive } from './nav';
+import Avatar from './Avatar.js';
 
 function Brand() {
   return (
@@ -78,9 +79,7 @@ function Footer({ shop, onNavigate }) {
         <span className="w-5 text-center text-[15px] leading-none">⚙️</span> Settings
       </Link>
       <div className="mt-2 flex items-center gap-2 rounded-lg bg-line-soft px-3 py-2.5">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-panel text-[13px] shadow-sm">
-          {shop?.avatar || '🛍️'}
-        </span>
+        <Avatar value={shop?.avatar} className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-panel text-[13px] shadow-sm" />
         <div className="min-w-0 leading-tight">
           <p className="truncate text-[12px] font-semibold text-ink">{shop?.name || 'My Shop'}</p>
           <p className="truncate text-[10px] text-faint">/{shop?.slug || 'your-slug'}</p>

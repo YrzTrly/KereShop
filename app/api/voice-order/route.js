@@ -161,18 +161,24 @@ export async function POST(req) {
       // Text path: reuse the existing OpenAI-or-heuristic parser.
       const { parseOrderText } = await import('@/lib/parse-order.js');
       const parsed = await parseOrderText(text);
+      const textItems = (parsed.items || []).map((it) => ({
+        product: it.name || '',
+        quantity: Math.max(1, Number(it.qty) || 1),
+        unitPrice: null,
+      }));
       result = {
         customerName: parsed.name || '',
         customerPhone: normalizePhone(parsed.phone || ''),
-        items: (parsed.items || []).map((it) => ({
-          product: it.name || '',
-          quantity: Math.max(1, Number(it.qty) || 1),
-          unitPrice: null,
-        })),
+        items: textItems,
         deliveryLocation: parsed.location || '',
         notes: '',
         engine: parsed.parseError ? `heuristic(${parsed.parseError})` : 'text',
       };
+      if (textItems.length === 0) {
+        result.parseError = parsed.parseError
+          ? `${parsed.parseError} — and no items could be parsed from the text`
+          : 'No items could be parsed from the text — try e.g. "2 Ankara sets, delivery to Ikeja"';
+      }
     }
 
     // Attach shop prices from the catalog — never trust the AI for pricing.
@@ -192,6 +198,11 @@ export async function POST(req) {
 
     const total = items.reduce((s, it) => s + (it.unitPrice || 0) * it.quantity, 0);
 
+    let parseError = result.parseError || '';
+    if (items.length === 0 && !parseError) {
+      parseError = 'No items could be parsed — please check the audio and try again, or type the order instead';
+    }
+
     return Response.json({
       success: true,
       engine: engine || result.engine,
@@ -203,7 +214,7 @@ export async function POST(req) {
         location: result.deliveryLocation,
         notes: result.notes,
         total,
-        parseError: result.parseError || '',
+        parseError,
       },
     });
   } catch (e) {
