@@ -3,13 +3,17 @@ import { getActiveShop } from '@/lib/shop-context.js';
 import { Product } from '@/lib/models.js';
 import { matchProduct } from '@/lib/parse-order.js';
 import { normalizePhone } from '@/lib/format.js';
+import { geminiGenerateContent } from '@/lib/gemini.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 // Audio can be long; allow ample time for the model call.
 export const maxDuration = 60;
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+// lib/gemini.js owns the fallback chain, so this default only sets the
+// primary candidate; Google's current recommendation per the deprecation
+// notice for gemini-2.5-flash-lite.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 const GEMINI_API_BASE = process.env.GEMINI_API_BASE || 'https://generativelanguage.googleapis.com';
 
 const RESPONSE_SCHEMA = {
@@ -50,13 +54,12 @@ function parseJsonLoose(text) {
 }
 
 async function parseAudioWithGemini(base64, mimeType) {
-  const res = await fetch(
-    `${GEMINI_API_BASE}/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+  const { model: usedModel, body: data } = await geminiGenerateContent(
+    GEMINI_API_BASE,
+    process.env.GEMINI_API_KEY,
+    GEMINI_MODEL,
     {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
+      contents: [
           {
             parts: [
               {
@@ -78,14 +81,8 @@ Rules:
           responseMimeType: 'application/json',
           responseSchema: RESPONSE_SCHEMA,
         },
-      }),
-    }
+      },
   );
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`Gemini API error ${res.status}: ${body.slice(0, 300)}`);
-  }
-  const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
   const parsed = parseJsonLoose(text);
   return {
@@ -100,7 +97,7 @@ Rules:
       : [],
     deliveryLocation: parsed.deliveryLocation || '',
     notes: parsed.notes || '',
-    engine: `gemini:${GEMINI_MODEL}`,
+    engine: `gemini:${usedModel}`,
   };
 }
 
@@ -142,7 +139,7 @@ export async function POST(req) {
             notes: 'Demo transcript — add GEMINI_API_KEY for live transcription',
             engine: 'demo-fallback',
           };
-          result.parseError = `Gemini call failed (${String(e.message || e).slice(0, 120)}) — used demo transcript`;
+          result.parseError = `${String(e.message || e).slice(0, 160)} — used demo transcript`;
         }
       } else {
         engine = 'demo';
