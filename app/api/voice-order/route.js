@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+const GEMINI_API_BASE = process.env.GEMINI_API_BASE || 'https://generativelanguage.googleapis.com';
 
 const RESPONSE_SCHEMA = {
   type: 'OBJECT',
@@ -24,8 +25,9 @@ const RESPONSE_SCHEMA = {
           product: { type: 'STRING', description: 'Product name as spoken' },
           quantity: { type: 'INTEGER' },
           unitPrice: {
-            type: ['NUMBER', 'NULL'],
-            description: 'Unit price ONLY if the customer explicitly stated it, else null',
+            type: 'NUMBER',
+            description:
+              'Unit price ONLY if the customer explicitly stated it, otherwise 0. (A single type — never an array — is required by the Gemini API.)',
           },
         },
         required: ['product', 'quantity'],
@@ -49,7 +51,7 @@ function parseJsonLoose(text) {
 
 async function parseAudioWithGemini(base64, mimeType) {
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    `${GEMINI_API_BASE}/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -65,7 +67,7 @@ Rules:
 - Do NOT invent information. If something is not mentioned, leave it empty or null.
 - Preserve Nigerian names and product names accurately.
 - "two" -> 2, "five thousand naira" -> 5000.
-- unitPrice must be null unless the customer explicitly stated a price.
+- unitPrice must be 0 unless the customer explicitly stated a price.
 - Return only the structured JSON.`,
               },
               { inlineData: { mimeType, data: base64 } },
@@ -93,7 +95,7 @@ Rules:
       ? parsed.items.map((it) => ({
           product: String(it.product || ''),
           quantity: Math.max(1, Number(it.quantity) || 1),
-          unitPrice: it.unitPrice == null ? null : Math.max(0, Number(it.unitPrice) || 0),
+          unitPrice: Number(it.unitPrice) > 0 ? Math.max(0, Number(it.unitPrice)) : null,
         }))
       : [],
     deliveryLocation: parsed.deliveryLocation || '',

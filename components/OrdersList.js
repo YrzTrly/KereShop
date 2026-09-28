@@ -1,16 +1,30 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { timeAgo } from '@/lib/format.js';
-import { StatusBadge, ChannelBadge } from '@/components/ui.js';
+
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
 
 export default function OrdersList({ orders, initialFrom = '', initialTo = '', initialStatus = '' }) {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState(initialStatus);
+  const [rows, setRows] = useState(orders);
+  const [busyId, setBusyId] = useState('');
+
+  // If the parent ever hands us new orders (refetch), follow them until the user edits a row.
+  useEffect(() => {
+    if (orders && orders !== rows) setRows(orders);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders]);
 
   const filtered = useMemo(() => {
-    let list = orders;
+    let list = rows;
     if (status) list = list.filter((o) => o.status === status);
     const n = q.trim().toLowerCase();
     if (!n) return list;
@@ -25,7 +39,27 @@ export default function OrdersList({ orders, initialFrom = '', initialTo = '', i
         (o.location || '').toLowerCase().includes(n)
       );
     });
-  }, [q, orders, status]);
+  }, [q, rows, status]);
+
+  async function updateStatus(orderId, newStatus) {
+    const prev = rows.find((o) => o.id === orderId)?.status;
+    // Optimistic update, roll back on failure.
+    setRows((rs) => rs.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
+    setBusyId(orderId);
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error(`Status update failed (${res.status})`);
+    } catch {
+      if (prev) setRows((rs) => rs.map((o) => (o.id === orderId ? { ...o, status: prev } : o)));
+      alert('Could not update order status. Please try again.');
+    } finally {
+      setBusyId('');
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -48,10 +82,9 @@ export default function OrdersList({ orders, initialFrom = '', initialTo = '', i
               className="mt-0.5 block rounded-lg border border-line bg-card px-2.5 py-1.5 text-[13px] text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30"
             >
               <option value="">All statuses</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
             </select>
           </label>
           <button type="submit" className="rounded-lg border border-line bg-card px-3 py-2 text-[13px] font-semibold text-ink transition hover:bg-line-soft">
@@ -79,13 +112,12 @@ export default function OrdersList({ orders, initialFrom = '', initialTo = '', i
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-line bg-card">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[700px] text-sm">
           <thead>
             <tr className="border-b border-line bg-panel text-left text-[11px] uppercase tracking-wide text-inksoft">
               <th className="px-4 py-3">Customer</th>
               <th className="px-4 py-3">Items</th>
               <th className="px-4 py-3">Total</th>
-              <th className="px-4 py-3">Channel</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Placed</th>
             </tr>
@@ -93,7 +125,7 @@ export default function OrdersList({ orders, initialFrom = '', initialTo = '', i
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-sm text-inksoft">
+                <td colSpan={5} className="px-4 py-10 text-center text-sm text-inksoft">
                   No orders match your filters.
                 </td>
               </tr>
@@ -120,8 +152,19 @@ export default function OrdersList({ orders, initialFrom = '', initialTo = '', i
                   )}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 font-semibold">{o.total}</td>
-                <td className="px-4 py-3"><ChannelBadge channel={o.channel} /></td>
-                <td className="px-4 py-3"><StatusBadge status={o.status} /></td>
+                <td className="px-4 py-3">
+                  <select
+                    value={o.status}
+                    disabled={busyId === o.id}
+                    onChange={(e) => updateStatus(o.id, e.target.value)}
+                    className="rounded-lg border border-line bg-card px-2.5 py-1.5 text-[13px] font-semibold text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30 disabled:cursor-wait disabled:opacity-60"
+                    aria-label={`Status for order ${o.customer?.name || o.id}`}
+                  >
+                    {STATUS_OPTIONS.map((s) => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </td>
                 <td className="whitespace-nowrap px-4 py-3 text-inksoft">{timeAgo(o.createdAt)}</td>
               </tr>
             ))}
