@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { Shop, Product } from '@/lib/models.js';
 import { db } from '@/lib/mongo.js';
 import { money, waLink, igLink } from '@/lib/format.js';
+import Avatar from '@/components/Avatar.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,9 +39,7 @@ export default async function StorefrontPage({ params }) {
         />
         <div className="relative mx-auto w-full max-w-5xl px-4 pb-10 pt-10 sm:px-6 sm:pb-14 sm:pt-14">
           <div className="flex items-center gap-4">
-            <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-brand text-3xl shadow-lg sm:h-20 sm:w-20 sm:text-4xl">
-              {shop.avatar || '🛍️'}
-            </span>
+            <Avatar value={shop.avatar} className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-brand text-3xl shadow-lg sm:h-20 sm:w-20 sm:text-4xl" />
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">{shop.name}</h1>
               <span className="mt-1.5 inline-block rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-brand">
