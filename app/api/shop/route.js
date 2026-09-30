@@ -1,7 +1,10 @@
 import { db } from '@/lib/mongo.js';
 import { Shop, Product } from '@/lib/models.js';
 import { isMultipart, parseMultipartForm, ImageUploadError } from '@/lib/imageUpload.js';
-import { uploadBufferToCloudinary, CloudinaryUploadError } from '@/lib/cloudinary.js';
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { ensureUploadDir } from '@/lib/uploads.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,8 +19,8 @@ function slugify(name) {
 
 /**
  * Parse `products` as a JSON array (multipart forms send it as a string) and
- * replace each entry's `image` with the Cloudinary secure_url uploaded from
- * the matching `image-<index>` file part. Pasted/uploaded URL strings pass
+ * replace each entry's `image` with the local `/api/files/<name>` URL of the
+ * matching `image-<index>` file part. Pasted/uploaded URL strings pass
  * through unchanged, so existing products keep working.
  *
  * @returns {{ products: Array<object> } | { error: string, status: number }}
@@ -54,15 +57,39 @@ async function resolveCatalogProducts(rawProducts, files) {
     };
     const file = imagesByIndex.get(index) || (index === 0 ? singleImage : null);
     if (file) {
-      const secureUrl = await uploadBufferToCloudinary(file.buffer, {
-        originalName: file.filename,
-        mimeType: file.mimetype,
-      });
-      entry.image = secureUrl;
+      const localUrl = await saveImageLocally(file.buffer, file.mimetype);
+      if (!localUrl) {
+        return { error: 'Unsupported image type — use PNG, JPG, WebP, GIF or AVIF.', status: 400 };
+      }
+      entry.image = localUrl;
     }
     resolved.push(entry);
   }
   return { products: resolved };
+}
+
+const EXT_BY_MIME = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+  'image/avif': '.avif',
+  'image/bmp': '.bmp',
+};
+
+/**
+ * Save an uploaded image buffer to the local upload directory (data/uploads
+ * by default, /tmp fallback on serverless — see lib/uploads.js) and return
+ * its public `/api/files/<name>` URL. Returns null for unsupported MIME
+ * types so the caller can reject with a clear error.
+ */
+async function saveImageLocally(buffer, mimetype) {
+  const ext = EXT_BY_MIME[mimetype];
+  if (!ext) return null;
+  const uploadDir = await ensureUploadDir();
+  const name = `${randomBytes(16).toString('hex')}${ext}`;
+  await writeFile(path.join(uploadDir, name), buffer);
+  return `/api/files/${name}`;
 }
 
 function catalogError(res) {
