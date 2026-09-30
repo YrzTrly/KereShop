@@ -1,5 +1,5 @@
 export function isAvatarUrl(value) {
-  return /^(https?:\/\/|\/)/i.test(String(value || '').trim());
+  return /^(https?:\/\/|data:image\/|\/)/i.test(String(value || '').trim());
 }
 
 export default function Avatar({ value, className = '', alt = 'Shop avatar' }) {

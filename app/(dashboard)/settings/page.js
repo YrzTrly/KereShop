@@ -240,13 +240,25 @@ export default function SettingsPage() {
           </label>
           <label className="block">
             <span className="mb-1.5 block text-[12px] font-semibold text-ink">Category</span>
-            <select className={inputCls} value={form.category} onChange={setField('category')}>
+            <select
+              className={inputCls}
+              value={CATEGORIES.includes(form.category) ? form.category : 'Other'}
+              onChange={setField('category')}
+            >
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
               ))}
             </select>
+            {(!CATEGORIES.includes(form.category) || form.category === 'Other') && (
+              <input
+                className={`${inputCls} mt-2`}
+                value={form.category === 'Other' ? '' : form.category}
+                onChange={setField('category')}
+                placeholder="Type your own category"
+              />
+            )}
           </label>
           <label className="block sm:col-span-2">
             <span className="mb-1.5 block text-[12px] font-semibold text-ink">Bio</span>

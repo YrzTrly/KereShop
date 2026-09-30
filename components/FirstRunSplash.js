@@ -1,8 +1,23 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 const TUTORIAL_KEY = 'kereshop_tutorial_seen_v1';
+
+const CATEGORIES = [
+  'Fashion & Ankara',
+  'Beads & Jewelry',
+  'Shoes & Bags',
+  'Food & Groceries',
+  'Beauty & Hair',
+  'Electronics',
+  'Services',
+  'Other',
+];
+
+const inputCls =
+  'w-full rounded-lg border border-line bg-panel px-3 py-2.5 text-[13px] text-ink placeholder:text-faint focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-soft';
 
 const STEPS = [
   {
@@ -28,8 +43,12 @@ const STEPS = [
 ];
 
 export default function FirstRunSplash() {
-  const [phase, setPhase] = useState('hidden'); // hidden | loading | tour
+  const router = useRouter();
+  const [phase, setPhase] = useState('hidden'); // hidden | loading | tour | onboarding
   const [step, setStep] = useState(0);
+  const [form, setForm] = useState({ name: '', businessType: '', customBusinessType: '', businessName: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     try {
@@ -42,16 +61,121 @@ export default function FirstRunSplash() {
     return () => clearTimeout(timer);
   }, []);
 
+  const completeTour = () => setPhase('onboarding');
+
   const finish = () => {
     try {
       localStorage.setItem(TUTORIAL_KEY, String(Date.now()));
     } catch {
-      // localStorage unavailable — tour simply won't persist
+      // localStorage unavailable — splash simply won't persist
     }
     setPhase('hidden');
+    router.refresh();
   };
 
+  const setField = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  async function submit() {
+    const name = form.name.trim();
+    const businessType =
+      form.businessType === 'Other' ? form.customBusinessType.trim() : form.businessType.trim();
+    const businessName = form.businessName.trim();
+    if (!name || !businessType || !businessName) {
+      setError('Please fill in all three fields.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch('/api/shop', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: businessName, ownerName: name, category: businessType }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not save your details');
+      finish();
+    } catch (e) {
+      setError(e.message || 'Something went wrong');
+      setSaving(false);
+    }
+  }
+
   if (phase === 'hidden') return null;
+if (phase === 'onboarding') {
+    return (
+      <div className="fixed inset-0 z-[100] grid place-items-center bg-ink/40 p-4 backdrop-blur-sm">
+        <div className="w-full max-w-sm rounded-2xl border border-line bg-panel p-6 shadow-2xl">
+          <span className="grid h-12 w-12 place-items-center rounded-xl bg-brand-soft text-2xl">👋</span>
+          <h2 className="mt-4 text-lg font-bold tracking-tight text-ink">Tell us about your shop</h2>
+          <p className="mt-1 text-[13px] leading-relaxed text-muted">
+            A quick introduction so your storefront feels personal. You can change any of this later in Settings.
+          </p>
+
+          <form
+            className="mt-5 grid gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submit();
+            }}
+          >
+            <label className="block">
+              <span className="mb-1.5 block text-[12px] font-semibold text-ink">Your name</span>
+              <input
+                className={inputCls}
+                value={form.name}
+                onChange={setField('name')}
+                placeholder="e.g. Adaeze Okafor"
+                required
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-[12px] font-semibold text-ink">Business type</span>
+              <select className={inputCls} value={form.businessType} onChange={setField('businessType')}>
+                <option value="" disabled>
+                  Choose a business type
+                </option>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              {form.businessType === 'Other' ? (
+                <input
+                  className={`${inputCls} mt-2`}
+                  value={form.customBusinessType}
+                  onChange={setField('customBusinessType')}
+                  placeholder="Type your own business type"
+                  required
+                />
+              ) : null}
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-[12px] font-semibold text-ink">Business name</span>
+              <input
+                className={inputCls}
+                value={form.businessName}
+                onChange={setField('businessName')}
+                placeholder="e.g. Adaeze's Ankara Palace"
+                required
+              />
+            </label>
+
+            {error ? <p className="text-[12px] font-medium text-red-600">{error}</p> : null}
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="mt-1 rounded-lg bg-ink px-4 py-2.5 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Finish setup'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (phase === 'loading') {
     return (
@@ -107,7 +231,7 @@ export default function FirstRunSplash() {
 
         <div className="mt-5 flex items-center justify-between">
           <button
-            onClick={finish}
+            onClick={completeTour}
             className="rounded-lg px-3 py-2 text-[13px] font-medium text-muted hover:text-ink"
           >
             Skip tour
@@ -122,7 +246,7 @@ export default function FirstRunSplash() {
               </button>
             ) : null}
             <button
-              onClick={() => (last ? finish() : setStep(step + 1))}
+              onClick={() => (last ? completeTour() : setStep(step + 1))}
               className="rounded-lg bg-ink px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
             >
               {last ? 'Get started' : 'Next'}
