@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB — must match the cap in /api/upload
 
-export default function ImageUpload({ value, onChange }) {
+export default function ImageUpload({ value, onChange, onFile }) {
   const [preview, setPreview] = useState(value || '');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -41,7 +41,6 @@ export default function ImageUpload({ value, onChange }) {
     }
 
     setError('');
-    setUploading(true);
     const id = ++requestRef.current;
 
     const objUrl = URL.createObjectURL(file);
@@ -49,6 +48,14 @@ export default function ImageUpload({ value, onChange }) {
     objectUrlRef.current = objUrl;
     setPreview(objUrl);
 
+    // Deferred mode: hand the raw File to the parent so it can include it in
+    // the form submission (multipart -> Cloudinary on the server).
+    if (onFile) {
+      onFile(file);
+      return;
+    }
+
+    setUploading(true);
     try {
       const form = new FormData();
       form.append('file', file);
@@ -122,6 +129,7 @@ export default function ImageUpload({ value, onChange }) {
             onClick={(e) => {
               e.stopPropagation();
               onChange('');
+              if (onFile) onFile(null);
             }}
             className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-panel/90 text-[13px] font-bold text-bad shadow hover:bg-panel"
           >
