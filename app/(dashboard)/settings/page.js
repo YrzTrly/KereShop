@@ -379,18 +379,25 @@ export default function SettingsPage() {
                         onChange={setProduct(i, 'description')}
                       />
                     </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      {!p.isNew ? (
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
                         <button
-                          type="button"
-                          onClick={() => cancelEdit(i)}
-                          className="text-[12px] font-semibold text-muted hover:underline"
+                          type="submit"
+                          disabled={savingProducts}
+                          className="rounded-lg bg-ink px-4 py-1.5 text-[12px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
                         >
-                          Cancel
+                          {savingProducts ? 'Saving…' : 'Save'}
                         </button>
-                      ) : (
-                        <span />
-                      )}
+                        {!p.isNew ? (
+                          <button
+                            type="button"
+                            onClick={() => cancelEdit(i)}
+                            className="text-[12px] font-semibold text-muted hover:underline"
+                          >
+                            Cancel
+                          </button>
+                        ) : null}
+                      </div>
                       <button
                         type="button"
                         onClick={() => removeRow(i)}
