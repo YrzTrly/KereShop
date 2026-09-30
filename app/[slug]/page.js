@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
 import { Shop, Product } from '@/lib/models.js';
 import { db } from '@/lib/mongo.js';
 import { money, waLink, igLink } from '@/lib/format.js';
@@ -98,7 +97,13 @@ export default async function StorefrontPage({ params }) {
               <div key={p._id} className="group overflow-hidden rounded-2xl border border-line bg-panel transition-shadow hover:shadow-md">
                 <div className="relative aspect-square overflow-hidden bg-line-soft">
                   {p.image ? (
-                    <Image src={p.image} alt={p.name} fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                    <img
+                      src={p.image}
+                      alt={p.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
                   ) : (
                     <div className="grid h-full place-items-center text-4xl">🛍️</div>
                   )}

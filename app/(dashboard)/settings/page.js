@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui.js';
 import ImageUpload from '@/components/ImageUpload.js';
+import { money } from '@/lib/format.js';
 
 const TUTORIAL_KEY = 'kereshop_tutorial_seen_v1';
 
@@ -24,6 +25,8 @@ const inputCls =
   'w-full rounded-lg border border-line bg-panel px-3 py-2.5 text-[13px] text-ink placeholder:text-faint focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-soft';
 
 const emptyProduct = { name: '', price: '', image: '', description: '' };
+
+const rowKey = (p) => p.id || `new-${p.uid}`;
 
 export default function SettingsPage() {
   const [shop, setShop] = useState(null);
@@ -69,9 +72,28 @@ export default function SettingsPage() {
   const setProduct = (i, key) => (e) =>
     setCatalog((rows) => rows.map((r, j) => (j === i ? { ...r, [key]: e.target.value } : r)));
 
-  const addRow = () => setCatalog((rows) => [...rows, { ...emptyProduct }]);
+  const addRow = () =>
+    setCatalog((rows) => [{ ...emptyProduct, uid: Math.random().toString(36).slice(2), isNew: true, editing: true }, ...rows]);
 
   const removeRow = (i) => setCatalog((rows) => rows.filter((_, j) => j !== i));
+
+  const startEdit = (i) =>
+    setCatalog((rows) =>
+      rows.map((r, j) =>
+        j === i
+          ? { ...r, editing: true, snapshot: { name: r.name, price: r.price, image: r.image, description: r.description } }
+          : r
+      )
+    );
+
+  const cancelEdit = (i) =>
+    setCatalog((rows) =>
+      rows.map((r, j) => {
+        if (j !== i || r.isNew) return r;
+        const { snapshot, editing, ...rest } = r;
+        return { ...rest, ...snapshot, editing: false };
+      })
+    );
 
   const setPendingImage = (i, file) =>
     setCatalog((rows) => rows.map((r, j) => (j === i ? { ...r, pendingImage: file || null } : r)));
@@ -300,58 +322,109 @@ export default function SettingsPage() {
         ) : (
           <div className="mt-3 grid gap-3">
             {catalog.map((p, i) => (
-              <div key={i} className="rounded-lg border border-line bg-panel p-3">
-                <div className="grid gap-2 sm:grid-cols-[1fr_120px]">
-                  <input
-                    className={inputCls}
-                    placeholder="Product name"
-                    value={p.name}
-                    onChange={setProduct(i, 'name')}
-                    required
-                  />
-                  <input
-                    className={inputCls}
-                    placeholder="Price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={p.price}
-                    onChange={setProduct(i, 'price')}
-                    required
-                  />
-                </div>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <ImageUpload
-                      value={p.image}
-                      onChange={(url) =>
-                        setCatalog((rows) => rows.map((r, j) => (j === i ? { ...r, image: url } : r)))
-                      }
-                      onFile={(file) => setPendingImage(i, file)}
-                    />
-                    <input
-                      className={inputCls}
-                      placeholder="Or paste an image URL (optional)"
-                      value={p.image}
-                      onChange={setProduct(i, 'image')}
-                    />
+              <div key={rowKey(p)} className="rounded-lg border border-line bg-panel p-3">
+                {p.isNew || p.editing ? (
+                  <div>
+                    <div className="grid gap-2 sm:grid-cols-[1fr_120px]">
+                      <input
+                        className={inputCls}
+                        placeholder="Product name"
+                        value={p.name}
+                        onChange={setProduct(i, 'name')}
+                        required
+                      />
+                      <input
+                        className={inputCls}
+                        placeholder="Price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={p.price}
+                        onChange={setProduct(i, 'price')}
+                        required
+                      />
+                    </div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <ImageUpload
+                          value={p.image}
+                          onChange={(url) =>
+                            setCatalog((rows) => rows.map((r, j) => (j === i ? { ...r, image: url } : r)))
+                          }
+                          onFile={(file) => setPendingImage(i, file)}
+                        />
+                        <input
+                          className={inputCls}
+                          placeholder="Or paste an image URL (optional)"
+                          value={p.image}
+                          onChange={setProduct(i, 'image')}
+                        />
+                      </div>
+                      <input
+                        className={inputCls}
+                        placeholder="Short description (optional)"
+                        value={p.description}
+                        onChange={setProduct(i, 'description')}
+                      />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      {!p.isNew ? (
+                        <button
+                          type="button"
+                          onClick={() => cancelEdit(i)}
+                          className="text-[12px] font-semibold text-muted hover:underline"
+                        >
+                          Cancel
+                        </button>
+                      ) : (
+                        <span />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeRow(i)}
+                        className="text-[12px] font-semibold text-bad hover:underline"
+                      >
+                        {p.isNew ? 'Remove' : 'Delete'}
+                      </button>
+                    </div>
                   </div>
-                  <input
-                    className={inputCls}
-                    placeholder="Short description (optional)"
-                    value={p.description}
-                    onChange={setProduct(i, 'description')}
-                  />
-                </div>
-                <div className="mt-2 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => removeRow(i)}
-                    className="text-[12px] font-semibold text-bad hover:underline"
-                  >
-                    Remove
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-line-soft">
+                      {p.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.image} alt={p.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="grid h-full w-full place-items-center text-xl">🛍️</div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-bold text-ink">{p.name}</p>
+                      <p className="text-[12px] font-semibold text-inkbrand">
+                        {money(p.price, shop.currency)}
+                      </p>
+                      {p.description ? (
+                        <p className="mt-0.5 truncate text-[11px] text-muted">{p.description}</p>
+                      ) : null}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(i)}
+                        className="rounded-lg border border-line bg-panel px-3 py-1.5 text-[12px] font-semibold text-ink hover:bg-line-soft"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeRow(i)}
+                        className="text-[12px] font-semibold text-bad hover:underline"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

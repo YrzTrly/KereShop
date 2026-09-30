@@ -158,21 +158,22 @@ export async function POST(req) {
       if (!text) {
         return Response.json({ error: 'Provide an audio file (multipart) or a "text" field' }, { status: 400 });
       }
-      // Text path: reuse the existing OpenAI-or-heuristic parser.
+      // Text path: Gemini text parsing (falls back to the heuristic parser
+      // when no key is set or the call fails — labeled in the result).
       const { parseOrderText } = await import('@/lib/parse-order.js');
       const parsed = await parseOrderText(text);
       const textItems = (parsed.items || []).map((it) => ({
         product: it.name || '',
         quantity: Math.max(1, Number(it.qty) || 1),
-        unitPrice: null,
+        unitPrice: Number(it.unitPrice) > 0 ? Number(it.unitPrice) : null,
       }));
       result = {
         customerName: parsed.name || '',
         customerPhone: normalizePhone(parsed.phone || ''),
         items: textItems,
         deliveryLocation: parsed.location || '',
-        notes: '',
-        engine: parsed.parseError ? `heuristic(${parsed.parseError})` : 'text',
+        notes: parsed.notes || '',
+        engine: parsed.parseError ? `heuristic(${parsed.parseError})` : parsed.parsedBy || 'text',
       };
       if (textItems.length === 0) {
         result.parseError = parsed.parseError
