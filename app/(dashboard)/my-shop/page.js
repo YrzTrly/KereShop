@@ -3,6 +3,7 @@ import { requireShop } from '@/lib/shop-context.js';
 import { Product } from '@/lib/models.js';
 import { money } from '@/lib/format.js';
 import Avatar from '@/components/Avatar.js';
+import StoreLink from '@/components/StoreLink.js';
 import { PageHeader, ChannelBadge } from '@/components/ui.js';
 
 export const dynamic = 'force-dynamic';
@@ -30,10 +31,7 @@ export default async function MyShopPage() {
       {/* Store link */}
       <div className="mt-5 rounded-xl border border-brand/30 bg-brand-soft p-4">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-inkbrand">Your public link</p>
-        <p className="mt-1 truncate font-mono text-[13px] font-semibold text-ink">
-          {typeof window === 'undefined' ? '/link' : window.location.origin}/
-          {shop.slug}
-        </p>
+        <StoreLink slug={shop.slug} />
         <p className="mt-1 text-[12px] text-muted">
           Share this link on Instagram bio, status, and WhatsApp broadcasts. Buyers land here and tap through to
           WhatsApp checkout.
