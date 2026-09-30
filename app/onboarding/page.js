@@ -44,7 +44,8 @@ export default function OnboardingPage() {
   const [error, setError] = useState('');
   const [form, setForm] = useState({
     name: '',
-    category: CATEGORIES[0],
+    category: '',
+    customCategory: '',
     whatsapp: '',
     instagram: '',
     bio: '',
@@ -63,7 +64,9 @@ export default function OnboardingPage() {
   const removeProduct = (i) =>
     setForm((f) => ({ ...f, products: f.products.filter((_, idx) => idx !== i) }));
 
-  const validStep1 = form.name.trim().length > 1;
+  const validStep1 =
+    form.name.trim().length > 1 &&
+    (form.category === 'Other' ? form.customCategory.trim().length > 0 : form.category !== '');
 
   async function submit() {
     setSaving(true);
@@ -74,6 +77,7 @@ export default function OnboardingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          category: form.category === 'Other' ? form.customCategory.trim() : form.category,
           whatsapp: form.whatsapp.trim(),
           instagram: form.instagram.trim().replace(/^@/, '@'),
           products: form.products.map((p) => ({
@@ -145,10 +149,21 @@ export default function OnboardingPage() {
                     value={form.category}
                     onChange={(e) => set('category', e.target.value)}
                   >
+                    <option value="">Select a category</option>
                     {CATEGORIES.map((c) => (
-                      <option key={c}>{c}</option>
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </select>
+                  {form.category === 'Other' && (
+                    <input
+                      className={`${inputCls} mt-2`}
+                      value={form.customCategory}
+                      onChange={(e) => set('customCategory', e.target.value)}
+                      placeholder="e.g. Phone Accessories"
+                    />
+                  )}
                 </Field>
                 <Field label="Currency">
                   <select

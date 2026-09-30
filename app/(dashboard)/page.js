@@ -39,7 +39,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Overview"
+        title={`Welcome, ${shop.ownerName?.trim() || 'there'}`}
         subtitle={`Here's what's happening at ${shop.name} today.`}
         action={
           <Link

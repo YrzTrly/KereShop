@@ -156,6 +156,7 @@ function serializeShop(shop) {
   return {
     id: shop._id.toString(),
     name: shop.name,
+    ownerName: shop.ownerName,
     slug: shop.slug,
     category: shop.category,
     bio: shop.bio,
@@ -196,12 +197,15 @@ export async function POST(req) {
   const { fields, files } = body;
   const name = String(fields.name || '').trim();
   if (!name) return Response.json({ error: 'Business name is required' }, { status: 400 });
+  const category = String(fields.category || '').trim();
+  if (!category) return Response.json({ error: 'Category is required' }, { status: 400 });
 
   const slug = await uniqueSlug(slugify(name));
   const shop = await Shop.create({
     name,
     slug,
-    category: String(fields.category || 'Fashion & Ankara'),
+    ownerName: String(fields.ownerName || '').trim(),
+    category,
     bio: String(fields.bio || ''),
     whatsapp: String(fields.whatsapp || ''),
     instagram: String(fields.instagram || ''),
@@ -234,7 +238,7 @@ export async function PATCH(req) {
   if (body.error) return catalogError(body);
   const { fields, files } = body;
 
-  const EDITABLE = ['name', 'category', 'bio', 'whatsapp', 'instagram', 'currency', 'avatar'];
+  const EDITABLE = ['name', 'ownerName', 'category', 'bio', 'whatsapp', 'instagram', 'currency', 'avatar'];
   for (const key of EDITABLE) {
     if (fields[key] !== undefined && fields[key] !== '') shop[key] = String(fields[key]);
   }

@@ -23,6 +23,7 @@ export default function VoiceOrderPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [createdOrder, setCreatedOrder] = useState(null);
+  const [edit, setEdit] = useState(null); // editable draft of the preview, set while the user fills in missing details
 
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -136,7 +137,7 @@ export default function VoiceOrderPage() {
         location: preview.location || '',
         notes: preview.notes || '',
         channel: 'voice',
-        total: preview.total,
+        total,
       };
       const res = await fetch('/api/orders', {
         method: 'POST',
@@ -161,10 +162,76 @@ export default function VoiceOrderPage() {
     setError('');
     setCreatedOrder(null);
     setText('');
+    setEdit(null);
     setPhase('idle');
   }
 
-  const total = preview ? preview.items.reduce((s, it) => s + (it.unitPrice || 0) * it.quantity, 0) : 0;
+  function startEdit() {
+    if (!preview) return;
+    setEdit({
+      name: preview.name || '',
+      phone: preview.phone || '',
+      location: preview.location || '',
+      notes: preview.notes || '',
+      items: (preview.items || []).map((it) => ({
+        product: it.catalogMatch || it.product || '',
+        quantity: Number(it.quantity) || 1,
+        unitPrice: Number(it.unitPrice) || 0,
+      })),
+    });
+    setError('');
+  }
+
+  function cancelEdit() {
+    setEdit(null);
+  }
+
+  function saveEdit() {
+    if (!edit || !preview) return;
+    const items = edit.items.filter((it) => String(it.product).trim());
+    if (!items.length) {
+      setError('Keep at least one item with a product name.');
+      return;
+    }
+    setPreview({
+      ...preview,
+      name: edit.name.trim(),
+      phone: edit.phone.trim(),
+      location: edit.location.trim(),
+      notes: edit.notes.trim(),
+      items,
+    });
+    setEdit(null);
+    setError('');
+  }
+
+  function updateEditField(field, value) {
+    setEdit((d) => (d ? { ...d, [field]: value } : d));
+  }
+
+  function updateEditItem(index, key, value) {
+    setEdit((d) =>
+      d ? { ...d, items: d.items.map((it, i) => (i === index ? { ...it, [key]: value } : it)) } : d
+    );
+  }
+
+  function addEditItem() {
+    setEdit((d) =>
+      d ? { ...d, items: [...d.items, { product: '', quantity: 1, unitPrice: 0 }] } : d
+    );
+  }
+
+  function removeEditItem(index) {
+    setEdit((d) => (d ? { ...d, items: d.items.filter((_, i) => i !== index) } : d));
+  }
+
+  const activeDraft = edit || preview;
+  const total = activeDraft
+    ? (activeDraft.items || []).reduce(
+        (s, it) => s + (Number(it.unitPrice) || 0) * (Number(it.quantity) || 0),
+        0
+      )
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -210,6 +277,10 @@ export default function VoiceOrderPage() {
                   {phase === 'recording'
                     ? 'Tap again when they finish.'
                     : 'Say things like: "Two red Ankara sets for Mama Tobi, fifteen thousand each, deliver to Ikeja."'}
+                </p>
+                <p className="mt-3 rounded-lg bg-line-soft/60 px-3 py-2 text-left text-[12px] text-muted">
+                  <span className="font-semibold text-ink">Tip:</span> be descriptive about your order as
+                  much as possible — include the customer&apos;s name and phone number.
                 </p>
                 {micError && <p className="mt-3 text-[12px] font-medium text-bad">{micError}</p>}
               </div>
@@ -260,7 +331,7 @@ export default function VoiceOrderPage() {
         {phase === 'preview' && preview ? (
           <div className="rounded-2xl border border-line bg-panel p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-bold text-ink">Order captured</h2>
+              <h2 className="text-sm font-bold text-ink">{edit ? 'Edit details' : 'Order captured'}</h2>
               <span className="rounded-full bg-line-soft px-2.5 py-1 text-[11px] font-semibold text-muted">
                 {engine === 'demo' || engine === 'demo-fallback'
                   ? 'Demo transcript'
@@ -276,6 +347,8 @@ export default function VoiceOrderPage() {
               </p>
             )}
 
+            {!edit ? (
+              <>
             <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="rounded-lg bg-line-soft/60 px-3 py-2.5">
                 <dt className="text-[11px] font-medium text-muted">Customer</dt>
@@ -339,25 +412,149 @@ export default function VoiceOrderPage() {
                 <dd className="mt-0.5 text-sm font-semibold text-ink">{preview.notes || '—'}</dd>
               </div>
             </dl>
+              </>
+            ) : (
+              <div className="mt-4 space-y-4">
+                <p className="rounded-lg bg-line-soft/60 px-3 py-2 text-[12px] text-muted">
+                  <span className="font-semibold text-ink">Tip:</span> be as descriptive as possible —
+                  include the customer&apos;s name and phone number, plus delivery details and any
+                  special notes.
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[11px] font-medium text-muted">Customer name</span>
+                    <input
+                      value={edit.name}
+                      onChange={(e) => setEdit({ ...edit, name: e.target.value })}
+                      placeholder="e.g. Mama Tobi"
+                      className="mt-1 w-full rounded-lg bg-line-soft/60 px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-brand"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-medium text-muted">Phone</span>
+                    <input
+                      value={edit.phone}
+                      onChange={(e) => setEdit({ ...edit, phone: e.target.value })}
+                      placeholder="e.g. 0803 123 4567"
+                      className="mt-1 w-full rounded-lg bg-line-soft/60 px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-brand"
+                    />
+                  </label>
+                </div>
+                <label className="block">
+                  <span className="text-[11px] font-medium text-muted">Delivery location</span>
+                  <input
+                    value={edit.location}
+                    onChange={(e) => setEdit({ ...edit, location: e.target.value })}
+                    placeholder="e.g. Ikeja, Lagos"
+                    className="mt-1 w-full rounded-lg bg-line-soft/60 px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-brand"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[11px] font-medium text-muted">Notes</span>
+                  <textarea
+                    value={edit.notes}
+                    onChange={(e) => setEdit({ ...edit, notes: e.target.value })}
+                    rows={2}
+                    placeholder="Colour, size, special instructions…"
+                    className="mt-1 w-full resize-y rounded-lg bg-line-soft/60 px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-brand"
+                  />
+                </label>
+                <div>
+                  <p className="text-[11px] font-medium text-muted">Items</p>
+                  <div className="mt-2 space-y-2">
+                    {edit.items.map((it, i) => (
+                      <div
+                        key={i}
+                        className="grid grid-cols-[1fr_76px_100px_32px] items-center gap-2 rounded-lg border border-line px-3 py-2"
+                      >
+                        <input
+                          value={it.product}
+                          onChange={(e) => updateEditItem(i, { product: e.target.value })}
+                          placeholder="Product"
+                          className="w-full min-w-0 rounded bg-transparent text-sm text-ink placeholder:text-faint focus:outline-none"
+                        />
+                        <input
+                          type="number"
+                          min="1"
+                          value={it.quantity}
+                          onChange={(e) => updateEditItem(i, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                          placeholder="Qty"
+                          className="w-full rounded bg-transparent text-sm text-ink placeholder:text-faint focus:outline-none"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          value={it.unitPrice}
+                          onChange={(e) => updateEditItem(i, { unitPrice: Math.max(0, Number(e.target.value) || 0) })}
+                          placeholder="Price"
+                          className="w-full rounded bg-transparent text-sm text-ink placeholder:text-faint focus:outline-none"
+                        />
+                        <button
+                          onClick={() => removeEditItem(i)}
+                          aria-label={`Remove item ${i + 1}`}
+                          className="text-sm text-muted hover:text-bad"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={addEditItem}
+                    className="mt-2 rounded-lg border border-dashed border-line px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-line-soft"
+                  >
+                    + Add item
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
               <p className="text-sm text-muted">
                 Total <span className="text-lg font-bold text-ink">{money(total, currency)}</span>
               </p>
               <div className="flex gap-2">
-                <button
-                  onClick={reset}
-                  className="rounded-lg border border-line px-4 py-2 text-[13px] font-medium text-muted hover:bg-line-soft"
-                >
-                  Discard
-                </button>
-                <button
-                  onClick={createOrder}
-                  disabled={busy}
-                  className="rounded-lg bg-ink px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                >
-                  {busy ? 'Creating…' : 'Create Order'}
-                </button>
+                {edit ? (
+                  <>
+                    <button
+                      onClick={() => setEdit(null)}
+                      disabled={busy}
+                      className="rounded-lg border border-line px-4 py-2 text-[13px] font-medium text-muted hover:bg-line-soft"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveEdit}
+                      disabled={busy}
+                      className="rounded-lg bg-ink px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      Save changes
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={startEdit}
+                      disabled={busy}
+                      className="rounded-lg border border-line px-4 py-2 text-[13px] font-medium text-muted hover:bg-line-soft"
+                    >
+                      Edit details
+                    </button>
+                    <button
+                      onClick={reset}
+                      className="rounded-lg border border-line px-4 py-2 text-[13px] font-medium text-muted hover:bg-line-soft"
+                    >
+                      Discard
+                    </button>
+                    <button
+                      onClick={createOrder}
+                      disabled={busy}
+                      className="rounded-lg bg-ink px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      {busy ? 'Creating…' : 'Create Order'}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -369,6 +566,9 @@ export default function VoiceOrderPage() {
             <h2 className="text-sm font-bold text-ink">Or paste the conversation</h2>
             <p className="mt-1 text-[12px] text-muted">
               No mic? Paste a WhatsApp / DM transcript and we will extract the order from it.
+            </p>
+            <p className="mt-2 text-[11px] text-faint">
+              Be as descriptive as possible — include the customer&apos;s name and phone number.
             </p>
             <textarea
               value={text}
