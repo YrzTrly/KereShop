@@ -1,2 +1,3 @@
 # KereShop
-Project for StacStart Hackathon
+Project for StacStart Hackathon 2026.
+
